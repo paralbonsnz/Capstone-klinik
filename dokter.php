@@ -16,7 +16,7 @@ if (isset($_GET['aksi']) && $_GET['aksi'] == 'antreskan') {
     $id_pasien_pilih = mysqli_real_escape_string($koneksi, $_GET['id_pasien']);
     $tanggal_hari_ini = date('Y-m-d');
     
-    $cek_antrean = mysqli_query($koneksi, "SELECT id_kunjungan FROM kunjungan WHERE id_pasien = '$id_pasien_pilih' AND tanggal_kunjungan = '$tanggal_hari_ini' AND status_antrean != 'Selesai'");
+    $cek_antrean = mysqli_query($koneksi, "SELECT id_kunjungan FROM kunjungan WHERE id_pasien = '$id_pasien_pilih' AND tanggal_kunjungan = '$tanggal_hari_ini' AND status_antrean NOT IN ('Selesai','Batal')");
     
     if (mysqli_num_rows($cek_antrean) == 0) {
         mysqli_query($koneksi, "INSERT INTO kunjungan (id_pasien, tanggal_kunjungan, keluhan, status_antrean) VALUES ('$id_pasien_pilih', '$tanggal_hari_ini', 'Kunjungan Ulang / Chat Admin', 'Menunggu')");
@@ -36,7 +36,7 @@ if (isset($_GET['aksi']) && $_GET['aksi'] == 'periksa') {
 // 🔴 AKSI 4: KETIKA PASIEN BATAL BEROBAT
 if (isset($_GET['aksi']) && $_GET['aksi'] == 'batal') {
     $id_kunjungan_batal = mysqli_real_escape_string($koneksi, $_GET['id']);
-    mysqli_query($koneksi, "DELETE FROM kunjungan WHERE id_kunjungan = '$id_kunjungan_batal'");
+    mysqli_query($koneksi, "UPDATE kunjungan SET status_antrean = 'Batal' WHERE id_kunjungan = '$id_kunjungan_batal'");
 }
 
 // 💾 AKSI 5: SIMPAN REKAM MEDIS FINAL

@@ -2,6 +2,15 @@
 session_start();
 include 'koneksi.php';
 
+// Menangani URL jika ada akhiran path agar tidak terkunci (contoh: dashboard_admin.php/index.php)
+if (!empty($_SERVER['PATH_INFO'])) {
+    $target = trim($_SERVER['PATH_INFO'], '/');
+    if (file_exists(__DIR__ . '/' . $target)) {
+        header("Location: /Capstone-klinik/" . $target);
+        exit;
+    }
+}
+
 // ============================================================
 // PROTEKSI HALAMAN: Hanya bisa diakses jika sudah login
 // Session yang digunakan disesuaikan dengan sistem login yang ada.
@@ -109,6 +118,26 @@ $q_antrean_aktif = mysqli_query($koneksi,
 $q_total_pasien = mysqli_query($koneksi, "SELECT COUNT(*) as total FROM pasien");
 $total_pasien_db = ($r = mysqli_fetch_assoc($q_total_pasien)) ? (int)$r['total'] : 0;
 
+// 9. Pasien dibatalkan hari ini
+$q_batal = mysqli_query($koneksi,
+    "SELECT COUNT(*) as total FROM kunjungan 
+     WHERE status_antrean = 'Batal' 
+     AND DATE(tanggal_kunjungan) = CURDATE()"
+);
+$total_batal = ($r = mysqli_fetch_assoc($q_batal)) ? (int)$r['total'] : 0;
+
+// 10. Top 5 pasien rutin (berdasarkan total kunjungan selesai)
+$q_top_pasien = mysqli_query($koneksi,
+    "SELECT p.nama_lengkap, COUNT(k.id_kunjungan) as total_kunjungan, 
+            MAX(k.tanggal_kunjungan) as terakhir 
+     FROM kunjungan k 
+     JOIN pasien p ON k.id_pasien = p.id_pasien 
+     WHERE k.status_antrean = 'Selesai' 
+     GROUP BY k.id_pasien 
+     ORDER BY total_kunjungan DESC 
+     LIMIT 5"
+);
+
 // Encode data grafik untuk JavaScript
 $js_labels = json_encode($hari_labels);
 $js_data   = json_encode($hari_data);
@@ -117,8 +146,9 @@ $js_data   = json_encode($hari_data);
 <html lang="id">
 <head>
     <meta charset="UTF-8">
+    <base href="/Capstone-klinik/">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Klinik - Klinik Sehat Pratama</title>
+    <title>Dashboard Klinik - Praktek Mandiri drg. Azwari</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Chart.js CDN -->
@@ -297,6 +327,7 @@ $js_data   = json_encode($hari_data);
         .stat-icon.amber  { background: var(--amber-light);  color: var(--amber); }
         .stat-icon.purple { background: var(--purple-light); color: var(--purple); }
         .stat-icon.red    { background: var(--red-light);    color: var(--red); }
+        .stat-icon.teal   { background: #f0fdfa;             color: #0d9488; }
         .stat-info { flex: 1; }
         .stat-label { font-size: 12px; font-weight: 600; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
         .stat-value { font-size: 32px; font-weight: 800; color: var(--text-dark); line-height: 1; }
@@ -461,7 +492,7 @@ $js_data   = json_encode($hari_data);
             <svg viewBox="0 0 24 24"><path d="M19 10.5h-5.5V5c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v5.5H5c-.83 0-1.5.67-1.5 1.5s.67 1.5 1.5 1.5h5.5V19c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5v-5.5H19c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5z"/></svg>
         </div>
         <div>
-            <div class="name">Klinik Sehat Pratama</div>
+            <div class="name">Praktek Mandiri drg. Azwari</div>
             <div class="sub">SISTEM INFORMASI KLINIK</div>
         </div>
     </div>
@@ -588,9 +619,21 @@ $js_data   = json_encode($hari_data);
                 </div>
             </div>
 
-            <!-- Total Pasien Terdaftar -->
+            <!-- Dibatalkan Hari Ini -->
             <div class="stat-card">
                 <div class="stat-icon red">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+                </div>
+                <div class="stat-info">
+                    <div class="stat-label">Dibatalkan Hari Ini</div>
+                    <div class="stat-value"><?php echo $total_batal; ?></div>
+                    <div class="stat-desc">Pasien batal berobat hari ini</div>
+                </div>
+            </div>
+
+            <!-- Total Pasien Terdaftar -->
+            <div class="stat-card">
+                <div class="stat-icon teal">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
                 </div>
                 <div class="stat-info">
@@ -734,11 +777,56 @@ $js_data   = json_encode($hari_data);
             <?php endif; ?>
         </div>
 
+        <!-- ===== TABEL TOP 5 PASIEN RUTIN ===== -->
+        <div class="card" style="margin-top:24px;">
+            <div class="card-header">
+                <div class="card-title">
+                    <span class="dot" style="background:#0d9488;"></span>
+                    Top 5 Pasien Rutin
+                </div>
+                <span class="card-badge">Berdasarkan Kunjungan Selesai</span>
+            </div>
+
+            <?php if (mysqli_num_rows($q_top_pasien) == 0): ?>
+                <div class="empty-state">
+                    <div class="icon">📊</div>
+                    <div>Belum ada data kunjungan selesai untuk ditampilkan.</div>
+                </div>
+            <?php else: ?>
+                <table class="antrean-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nama Pasien</th>
+                            <th>Total Kunjungan</th>
+                            <th>Kunjungan Terakhir</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php $no_top = 1; while ($row_top = mysqli_fetch_assoc($q_top_pasien)): ?>
+                            <tr>
+                                <td style="color:var(--text-light); font-weight:600;"><?php echo $no_top++; ?></td>
+                                <td>
+                                    <div class="nama"><?php echo htmlspecialchars($row_top['nama_lengkap']); ?></div>
+                                </td>
+                                <td>
+                                    <span style="font-weight:700; color:var(--blue);"><?php echo $row_top['total_kunjungan']; ?>x</span>
+                                </td>
+                                <td style="color:var(--text-mid); font-size:12.5px;">
+                                    <?php echo date('d M Y', strtotime($row_top['terakhir'])); ?>
+                                </td>
+                            </tr>
+                        <?php endwhile; ?>
+                    </tbody>
+                </table>
+            <?php endif; ?>
+        </div>
+
     </div><!-- end .content -->
 
     <!-- FOOTER -->
     <div class="page-footer">
-        <span>© <?php echo date('Y'); ?> Klinik Sehat Pratama · Sistem Informasi Rekam Medis</span>
+        <span>© <?php echo date('Y'); ?> Praktek Mandiri drg. Azwari · Sistem Informasi Rekam Medis</span>
         <span>Data diperbarui: <?php echo date('d M Y, H:i:s'); ?> WIB</span>
     </div>
 

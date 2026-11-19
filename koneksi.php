@@ -7,14 +7,20 @@ mysqli_report(MYSQLI_REPORT_OFF);
 $host     = "127.0.0.1";     
 $username = "root";          
 $password = "";              
-$database = "rekam_medis_tes"; 
+$database = "rekam_medis"; 
 
 // 2. Hubungkan PHP ke MySQL
 $koneksi = @mysqli_connect($host, $username, $password, $database);
 
-// Fallback ke "localhost" jika 127.0.0.1 tidak merespon
+// Fallback ke "localhost" atau nama database alternatif jika belum tersambung
 if (!$koneksi) {
     $koneksi = @mysqli_connect("localhost", $username, $password, $database);
+}
+if (!$koneksi) {
+    $koneksi = @mysqli_connect($host, $username, $password, "rekam_medis_tes");
+}
+if (!$koneksi) {
+    $koneksi = @mysqli_connect("localhost", $username, $password, "rekam_medis_tes");
 }
 
 // 3. Pengecekan: Jika MySQL di XAMPP belum aktif, berikan tampilan notifikasi yang jelas dan ramah
