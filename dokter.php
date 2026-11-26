@@ -1,5 +1,6 @@
 <?php
 include 'koneksi.php';
+include 'helper_antrean.php';
 
 $pesan = "";
 $pasien_diperiksa = null;
@@ -19,8 +20,9 @@ if (isset($_GET['aksi']) && $_GET['aksi'] == 'antreskan') {
     $cek_antrean = mysqli_query($koneksi, "SELECT id_kunjungan FROM kunjungan WHERE id_pasien = '$id_pasien_pilih' AND tanggal_kunjungan = '$tanggal_hari_ini' AND status_antrean NOT IN ('Selesai','Batal')");
     
     if (mysqli_num_rows($cek_antrean) == 0) {
-        mysqli_query($koneksi, "INSERT INTO kunjungan (id_pasien, tanggal_kunjungan, keluhan, status_antrean) VALUES ('$id_pasien_pilih', '$tanggal_hari_ini', 'Kunjungan Ulang / Chat Admin', 'Menunggu')");
-        $pesan = "Pasien lama berhasil dimasukkan kembali ke antrean hari ini!";
+        $nomor_baru = generate_nomor_antrean($koneksi, 'Poli Gigi & Mulut', $tanggal_hari_ini);
+        mysqli_query($koneksi, "INSERT INTO kunjungan (id_pasien, nomor_antrean, poli_tujuan, loket_meja, tanggal_kunjungan, keluhan, status_antrean) VALUES ('$id_pasien_pilih', '$nomor_baru', 'Poli Gigi & Mulut', 'Ruang Poli Gigi & Mulut - Meja 1', '$tanggal_hari_ini', 'Kunjungan Ulang / Chat Admin', 'Menunggu')");
+        $pesan = "Pasien lama berhasil dimasukkan ke antrean dengan No: <strong>$nomor_baru</strong>!";
     } else {
         $pesan = "⚠️ Pasien sudah ada di antrean hari ini!";
     }
@@ -29,8 +31,9 @@ if (isset($_GET['aksi']) && $_GET['aksi'] == 'antreskan') {
 // 🟢 AKSI 3: KETIKA DOKTER KLIK TOMBOL "PANGGIL"
 if (isset($_GET['aksi']) && $_GET['aksi'] == 'periksa') {
     $id_kunjungan_pilih = mysqli_real_escape_string($koneksi, $_GET['id']); 
+    $waktu_sekarang = date('Y-m-d H:i:s');
     mysqli_query($koneksi, "UPDATE kunjungan SET status_antrean = 'Menunggu' WHERE status_antrean = 'Diperiksa'");
-    mysqli_query($koneksi, "UPDATE kunjungan SET status_antrean = 'Diperiksa' WHERE id_kunjungan = '$id_kunjungan_pilih'");
+    mysqli_query($koneksi, "UPDATE kunjungan SET status_antrean = 'Diperiksa', waktu_panggil = '$waktu_sekarang' WHERE id_kunjungan = '$id_kunjungan_pilih'");
 }
 
 // 🔴 AKSI 4: KETIKA PASIEN BATAL BEROBAT
@@ -85,7 +88,7 @@ $master_pasien = mysqli_query($koneksi, $query_master_pasien);
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard EHR Klinik - Mode Integrasi</title>
+    <title>Ruang Dokter - Praktek Mandiri drg. Azwari</title>
     <style>
         body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; display: flex; gap: 20px; }
         .sidebar-left { flex: 1.2; display: flex; flex-direction: column; gap: 15px; }
@@ -113,6 +116,18 @@ $master_pasien = mysqli_query($koneksi, $query_master_pasien);
 
     <!-- CONTAINER KIRI (ANTREAN & MASTER DATA) -->
     <div class="sidebar-left">
+        
+        <!-- HEADER TANGGAL -->
+        <div style="background:#fff; padding:12px 20px; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.05); display:flex; justify-content:space-between; align-items:center;">
+            <div>
+                <h2 style="margin:0; font-size:18px; color:#333;">🩺 Ruang Dokter</h2>
+                <small style="color:#888;">Praktek Mandiri drg. Azwari</small>
+            </div>
+            <div style="text-align:right;">
+                <div style="font-size:14px; font-weight:bold; color:#333;"><?php echo strftime('%A', time()); ?>, <?php echo date('d M Y'); ?></div>
+                <small style="color:#888;"><?php echo date('H:i'); ?> WIB</small>
+            </div>
+        </div>
         
         <!-- PENGUMUMAN NOTIFIKASI -->
         <?php if ($pesan != ""): ?>

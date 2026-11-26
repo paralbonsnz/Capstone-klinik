@@ -1,3 +1,5 @@
+
+
 <?php
 session_start();
 include 'koneksi.php';
@@ -104,13 +106,19 @@ if ($total_minggu_lalu > 0) {
     $persen_minggu = $total_minggu_ini > 0 ? 100 : 0;
 }
 
-// 7. Daftar antrean aktif (Menunggu) untuk tabel cepat
+// 7. Daftar antrean aktif (Menunggu/Dipanggil/Diperiksa) untuk tabel cepat
 $q_antrean_aktif = mysqli_query($koneksi,
-    "SELECT k.id_kunjungan, p.nama_lengkap, k.keluhan, k.status_antrean, k.tanggal_kunjungan
+    "SELECT k.id_kunjungan, k.nomor_antrean, p.nama_lengkap, k.keluhan, k.status_antrean, k.tanggal_kunjungan
      FROM kunjungan k 
      JOIN pasien p ON k.id_pasien = p.id_pasien 
-     WHERE k.status_antrean IN ('Menunggu','Diperiksa') 
-     ORDER BY k.id_kunjungan ASC 
+     WHERE k.status_antrean IN ('Menunggu','Dipanggil','Diperiksa') 
+     ORDER BY 
+        CASE 
+            WHEN k.status_antrean = 'Dipanggil' THEN 1
+            WHEN k.status_antrean = 'Diperiksa' THEN 2
+            ELSE 3
+        END,
+        k.id_kunjungan ASC 
      LIMIT 10"
 );
 
@@ -422,6 +430,8 @@ $js_data   = json_encode($hari_data);
         .badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; }
         .badge.menunggu { background: #fef3c7; color: #92400e; }
         .badge.menunggu::before { background: #d97706; }
+        .badge.dipanggil { background: #e0f2fe; color: #0369a1; }
+        .badge.dipanggil::before { background: #0284c7; animation: pulse 1.2s infinite; }
         .badge.diperiksa { background: #dcfce7; color: #166534; }
         .badge.diperiksa::before { background: #16a34a; animation: pulse 1.5s infinite; }
 
@@ -503,6 +513,18 @@ $js_data   = json_encode($hari_data);
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
             Dashboard
         </a>
+        <a href="pengumuman_antrean.php" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            Pengumuman Antrean
+        </a>
+        <a href="monitor_antrean.php" target="_blank" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            Monitor Antrean TV ↗
+        </a>
+        <a href="rekapitulasi_antrean.php" class="nav-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            Rekapitulasi Antrean
+        </a>
         <a href="index.php" class="nav-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             Loket Pendaftaran
@@ -513,7 +535,7 @@ $js_data   = json_encode($hari_data);
         </a>
         <a href="laporan.php" class="nav-item">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            Laporan & Export
+            Laporan Excel
         </a>
     </div>
 
@@ -547,6 +569,21 @@ $js_data   = json_encode($hari_data);
 
         <!-- ===== QUICK ACCESS LINKS ===== -->
         <div class="quicklink-grid">
+            <a href="pengumuman_antrean.php" class="quicklink-card" style="border-left: 4px solid #0284c7;">
+                <div class="ql-icon" style="background:#e0f2fe;">📢</div>
+                <div class="ql-title">Pengumuman Antrean</div>
+                <div class="ql-desc">Panggil & kelola antrean</div>
+            </a>
+            <a href="monitor_antrean.php" target="_blank" class="quicklink-card" style="border-left: 4px solid #0d9488;">
+                <div class="ql-icon" style="background:#ccfbf1;">📺</div>
+                <div class="ql-title">Monitor Antrean TV</div>
+                <div class="ql-desc">Tampilan TV ruang tunggu ↗</div>
+            </a>
+            <a href="rekapitulasi_antrean.php" class="quicklink-card" style="border-left: 4px solid #7c3aed;">
+                <div class="ql-icon" style="background:#f5f3ff;">📊</div>
+                <div class="ql-title">Rekapitulasi Antrean</div>
+                <div class="ql-desc">Laporan dan ekspor Excel</div>
+            </a>
             <a href="index.php" class="quicklink-card">
                 <div class="ql-icon" style="background:#eff6ff;">📋</div>
                 <div class="ql-title">Loket Pendaftaran</div>
@@ -556,11 +593,6 @@ $js_data   = json_encode($hari_data);
                 <div class="ql-icon" style="background:#f0fdf4;">🩺</div>
                 <div class="ql-title">Ruang Dokter</div>
                 <div class="ql-desc">Periksa & isi rekam medis</div>
-            </a>
-            <a href="laporan.php" class="quicklink-card">
-                <div class="ql-icon" style="background:#fefce8;">📊</div>
-                <div class="ql-title">Laporan Excel</div>
-                <div class="ql-desc">Export data kunjungan</div>
             </a>
             <a href="login.php" class="quicklink-card">
                 <div class="ql-icon" style="background:#fdf4ff;">👤</div>
@@ -744,6 +776,7 @@ $js_data   = json_encode($hari_data);
                     <thead>
                         <tr>
                             <th>#</th>
+                            <th>No. Antrean</th>
                             <th>Nama Pasien</th>
                             <th>Keluhan</th>
                             <th>Waktu Masuk</th>
@@ -755,6 +788,11 @@ $js_data   = json_encode($hari_data);
                             <tr>
                                 <td style="color:var(--text-light); font-weight:600;"><?php echo $no++; ?></td>
                                 <td>
+                                    <span style="font-weight:800; color:#0284c7; background:#e0f2fe; padding:2px 8px; border-radius:6px; font-size:12px;">
+                                        <?php echo htmlspecialchars($row['nomor_antrean'] ?: 'A-000'); ?>
+                                    </span>
+                                </td>
+                                <td>
                                     <div class="nama"><?php echo htmlspecialchars($row['nama_lengkap']); ?></div>
                                 </td>
                                 <td>
@@ -764,7 +802,9 @@ $js_data   = json_encode($hari_data);
                                     <?php echo date('d M Y, H:i', strtotime($row['tanggal_kunjungan'])); ?>
                                 </td>
                                 <td>
-                                    <?php if ($row['status_antrean'] == 'Menunggu'): ?>
+                                    <?php if ($row['status_antrean'] == 'Dipanggil'): ?>
+                                        <span class="badge dipanggil">Dipanggil</span>
+                                    <?php elseif ($row['status_antrean'] == 'Menunggu'): ?>
                                         <span class="badge menunggu">Menunggu</span>
                                     <?php elseif ($row['status_antrean'] == 'Diperiksa'): ?>
                                         <span class="badge diperiksa">Diperiksa</span>
